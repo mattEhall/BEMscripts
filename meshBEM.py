@@ -1,22 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import xarray as xr
-import logging
-import subprocess
-import time
 
-#from numpy import pi, sin, cos, linspace, full, concatenate
 from mpl_toolkits.mplot3d import Axes3D
-from capytaine import (FloatingBody, BEMSolver, RadiationProblem,
-                       DiffractionProblem, assemble_dataset)
-from capytaine.io.legacy import write_dataset_as_tecplot_files
-from capytaine.io.xarray import separate_complex_values
-from capytaine.meshes.quality import (merge_duplicates, heal_normals, remove_unused_vertices,
-                                      heal_triangles, remove_degenerated_faces)
-from os import chdir, mkdir, getcwd
-from os.path import splitext, join, exists
 from datetime import datetime
-
 
 def printpanel(outlines, x, y, z):
     '''write one panel to the output file - parameters are output file, 4 x
@@ -290,6 +276,10 @@ class Mesh:
         self.points[2,:] *= zScaleFactor
         self.cog[2] *= zScaleFactor
 
+    def scale(self, scaleFactor):
+        self.points *= scaleFactor
+        self.cog *= scaleFactor
+
     def translate_x(self, xTranslateFactor):
         self.points[0,:] += xTranslateFactor
         self.cog[0] += xTranslateFactor
@@ -331,7 +321,6 @@ class Mesh:
         '''save mesh points and panels to nemoh format'''
         if saveName==None:
             saveName = self.nemohSaveName
-
         f = open(saveName, "w")
         f.write(f'{len(self.panels[0,:])} {len(self.x3d)}\n')
         for i in range(self.numPoints):
@@ -652,7 +641,7 @@ def disc_with_torus_xsection(discRadius, discPoints, discThickness,
 
     return xPts, zPts
 
-def hemisphere_xsection(hemisphereRadius, hemispherePoints):
+def closed_hemisphere_xsection(hemisphereRadius, hemispherePoints):
     linSpacing = np.linspace(0, 90, hemispherePoints)
     cosineSpacing = np.cos(d2r*linSpacing) * (90*d2r)
     arcXPts = hemisphereRadius*np.sin(cosineSpacing)
@@ -663,5 +652,12 @@ def hemisphere_xsection(hemisphereRadius, hemispherePoints):
     topZPts = np.full(len(topXPts), 0.0) # enforce = 0.0 (waterline)
     xPts = np.append(topXPts[:-1], arcXPts)
     zPts = np.append(topZPts[:-1], arcZPts)
-
     return xPts, zPts
+
+def open_hemisphere_xsection(hemisphereRadius, hemispherePoints):
+    linSpacing = np.linspace(0, 90, hemispherePoints)
+    cosineSpacing = np.cos(d2r*linSpacing) * (90*d2r)
+    arcXPts = hemisphereRadius*np.sin(cosineSpacing)
+    arcZPts = -hemisphereRadius*np.cos(cosineSpacing)
+    arcZPts[0] = 0.0 # enforce = 0.0 @ waterline
+    return arcXPts, arcZPts
