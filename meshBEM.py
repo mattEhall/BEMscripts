@@ -246,7 +246,7 @@ def axisym_3d_points(x, z, nTheta):
             z3d[iPoint] = z[j]
             iPoint = iPoint+1
 
-    return x3d, y3d, z3d
+    return np.array([x3d, y3d, z3d])
 
 
 class Mesh:
@@ -661,3 +661,51 @@ def open_hemisphere_xsection(hemisphereRadius, hemispherePoints):
     arcZPts = -hemisphereRadius*np.cos(cosineSpacing)
     arcZPts[0] = 0.0 # enforce = 0.0 @ waterline
     return arcXPts, arcZPts
+
+def create_linSpace(refine, pts):
+    '''create linspace for cosine spacing'''
+    if refine == 'start':
+        minVal = 90
+        maxVal = 180
+    if refine == 'end':
+        minVal = 0
+        maxVal = 90
+    if refine == 'both':
+        minVal = 0
+        maxVal = 180
+    return np.linspace(minVal, maxVal, pts)
+
+
+def create_cosSpace(length, refine, pts):
+    '''convert linSpace to cosSpace for desired length'''
+    linSpace = create_linSpace(refine, pts)
+    cosLin = np.cos(d2r*linSpace)
+    minCosLin = min(cosLin)
+    if refine == 'both':
+        length *= 0.5
+    cosSpace = (cosLin+abs(minCosLin))*length
+    return np.sort(cosSpace)
+
+
+def stepped_cylinder_open_xsection(innCylRadius, innCylDraft, innCylPts,
+                                   outCylRadius, outCylDraft, outCylPts,
+                                   stepPts, bottomPts):
+    '''create a 'stepped' cylinder cross section with open top @ waterline'''
+    topCylXPts = np.full(innCylPts, innCylRadius)
+    topCylZPts = create_cosSpace(length=innCylDraft, refine='both',
+                                 pts=innCylPts)
+
+    stepXPts = create_cosSpace(length=(outCylRadius-innCylRadius),
+                                   refine='both', pts=stepPts)+innCylRadius
+    stepZPts = np.full(stepPts, innCylDraft)
+
+    outCylXPts = np.full(outCylPts, outCylRadius)
+    outCylZPts = create_cosSpace(length=outCylDraft, refine='both',
+                                 pts=outCylPts)+innCylDraft
+
+    bottomXPts = create_cosSpace(length=outCylRadius, refine='end', pts=bottomPts)
+    bottomZPts = np.full(bottomPts, (innCylDraft + outCylDraft))
+    xPts = np.hstack((topCylXPts, stepXPts, outCylXPts, bottomXPts[::-1]))
+    zPts = np.hstack((topCylZPts[::-1], stepZPts, outCylZPts[::-1], bottomZPts))
+    pts = np.stack((xPts.T, zPts.T))
+    return pts
